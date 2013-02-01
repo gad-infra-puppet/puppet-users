@@ -72,7 +72,17 @@ define users::useraccount ( $ensure = present, $fullname, $uid = '', $groups = [
 
                 case generate('/etc/puppet/modules/users/scripts/findDirs.sh', $managedDirs) {
                     '': {
-                        file { "/home/${username}":
+                        $home_source = [
+                                "puppet:///files/users/home/default/host/${username}.$fqdn",
+                                "puppet:///files/users/home/default/host/${username}.$hostname",
+                                "puppet:///files/users/home/default/domain/${username}.$domain",
+                                "puppet:///files/users/home/default/env/${username}.$environment",
+                                "puppet:///files/users/home/default/user/${username}",
+                                "puppet:///files/users/home/default/skel",
+                                "puppet:///users/home/default",
+                            ]
+
+                        file { "/home/${username}/":
                             ensure       => $ensure ? {
                                 present => directory,
                                 absent  => absent,
@@ -83,21 +93,21 @@ define users::useraccount ( $ensure = present, $fullname, $uid = '', $groups = [
                             recurse      => remote,
                             replace      => false,
                             ignore       => [ '*.git', '*.swp', '*.un~' ],
-                            source       => [
-                                "puppet:///files/users/home/default/host/${username}.$fqdn",
-                                "puppet:///files/users/home/default/host/${username}.$hostname",
-                                "puppet:///files/users/home/default/domain/${username}.$domain",
-                                "puppet:///files/users/home/default/env/${username}.$environment",
-                                "puppet:///files/users/home/default/user/${username}",
-                                "puppet:///files/users/home/default/skel",
-                                "puppet:///users/home/default",
-                            ],
+                            source       => $home_source,
                             sourceselect => all,
                             require      => User["${username}"],
                         }
                     }
                     default: {
-                        file { "/home/${username}":
+                        $home_source = [
+                                "puppet:///files/users/home/managed/host/${username}.$fqdn",
+                                "puppet:///files/users/home/managed/host/${username}.$hostname",
+                                "puppet:///files/users/home/managed/domain/${username}.$domain",
+                                "puppet:///files/users/home/managed/env/${username}.$environment",
+                                "puppet:///files/users/home/managed/user/${username}",
+                                "puppet:///files/users/home/managed/skel",
+                            ]
+                        file { "/home/${username}/":
                             ensure       => $ensure ? {
                                 present => directory,
                                 absent  => absent,
@@ -109,20 +119,14 @@ define users::useraccount ( $ensure = present, $fullname, $uid = '', $groups = [
                             replace      => true,
                             force        => true,
                             ignore       => '.git',
-                            source       => [
-                                "puppet:///files/users/home/managed/host/${username}.$fqdn",
-                                "puppet:///files/users/home/managed/host/${username}.$hostname",
-                                "puppet:///files/users/home/managed/domain/${username}.$domain",
-                                "puppet:///files/users/home/managed/env/${username}.$environment",
-                                "puppet:///files/users/home/managed/user/${username}",
-                                "puppet:///files/users/home/managed/skel",
-                            ],
+                            source       => $home_source,
                             sourceselect => all,
                             require      => User["${username}"],
                         }
                     }
                 }
             } else {
+                $home_source = nil
                 file { "/home/${username}":
                     ensure  => $ensure ? {
                         present => directory,
@@ -142,14 +146,33 @@ define users::useraccount ( $ensure = present, $fullname, $uid = '', $groups = [
                 require => File["/home/${username}"],
             }
 
-            file { "/home/${username}/.ssh":
-                ensure  => directory,
-                owner   => $home_owner,
-                group   => $home_group,
-                mode    => 700,
-                require => File["/home/${username}"],
-            }
-        }
+           if $home_source {
+             $ssh_source = split(
+               inline_template("<%= home_source.map{|e| e + '/.ssh'}.join(',') %>"),
+               ','
+               )
+             file { "/home/${username}/.ssh":
+                 ensure  => directory,
+                 recurse => remote,
+                 owner   => $home_owner,
+                 group   => $home_group,
+                 mode    => 700,
+                 source  => $ssh_source,
+                 sourceselect => all,
+                 ignore       => [ '*.git*', '*.swp', '*.un~' ],
+                 require => File["/home/${username}"],
+             }
+           } else {
+             file { "/home/${username}/.ssh":
+                 ensure  => directory,
+                 owner   => $home_owner,
+                 group   => $home_group,
+                 mode    => 700,
+                 require => File["/home/${username}"],
+             }
+	   }
+
+      }
     }
 }
 

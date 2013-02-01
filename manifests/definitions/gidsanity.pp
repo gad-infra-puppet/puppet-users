@@ -22,8 +22,8 @@ define users::gidsanity($groupname) {
                     }
 
                     # Gid already correctly assigned
-                    $username: {
-                        debug("gid $gid already belong to $username")
+                    $groupname: {
+                        debug("gid $gid already belong to $groupname")
                     }
 
                     # Gid with another group -- change the other group's gid to gid + 10000, and fix /home ownership

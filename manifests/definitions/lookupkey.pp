@@ -10,14 +10,20 @@ define users::lookupkey($ensure = present) {
         default => $rest,
     }
 
+    if $name =~ /(.*)::(.*)/ {
+      $user_name = $2
+    } else {
+      $user_name = $name
+    }
+
     ssh_authorized_key { "${name}_${comment}":
         ensure  => $ensure,
         key     => "$key",
         type    => "$type",
-        user    => "$name",
+        user    => "$user_name",
         options => $options,
-        target  => "/home/${name}/.ssh/authorized_keys",
-        require => [ User["$name"], File["/home/${name}/.ssh"], ],
+        target  => "/home/${user_name}/.ssh/authorized_keys",
+        require => [ User["$user_name"], File["/home/${user_name}/.ssh"], ],
     }
 }
 
